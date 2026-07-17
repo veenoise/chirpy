@@ -1,18 +1,25 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
 	"unicode/utf8"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"github.com/veenoise/chirpy/internal/database"
 )
 
 // apiConfig holds our application's stateful, in-memory data.
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db             *database.Queries
 }
 
 // =========================================================================
@@ -142,7 +149,16 @@ func (cfg *apiConfig) respondWithJSON(w http.ResponseWriter, code int, payload i
 // =========================================================================
 
 func main() {
-	apiCfg := &apiConfig{}
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	dbQueries := database.New(db)
+
+	apiCfg := &apiConfig{db: dbQueries}
 
 	mux := http.NewServeMux()
 
