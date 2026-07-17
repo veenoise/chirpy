@@ -9,8 +9,10 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/veenoise/chirpy/internal/database"
@@ -71,6 +73,17 @@ type chirpResponse struct {
 	CleanedBody string `json:"cleaned_body"`
 }
 
+type userParams struct {
+	Email string `json:"email"`
+}
+
+type userResponse struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
+
 // handlerValidateChirp decodes and validates the chirp length correctly using runes.
 func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 	// Limit request body to 50KB to prevent memory exhaustion attacks
@@ -95,6 +108,30 @@ func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Reques
 	cfg.respondWithJSON(w, http.StatusOK, chirpResponse{
 		CleanedBody: cleaned,
 	})
+}
+
+// handlerUsers create a user
+func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
+	var params userParams
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&params); err != nil {
+		cfg.respondWithError(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+
+	user, err := cfg.db.CreateUser(r.Context(), params.Email)
+	if err != nil {
+		cfg.respondWithError(w, http.StatusBadRequest, "User Creation Failed")
+		return
+	}
+
+	cfg.respondWithJSON(w, http.StatusCreated, userResponse{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	})
+
 }
 
 // =========================================================================
@@ -177,6 +214,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 	mux.HandleFunc("POST /api/validate_chirp", apiCfg.handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
 
 	server := &http.Server{
 		Addr:    ":8080",
