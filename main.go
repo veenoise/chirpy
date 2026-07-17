@@ -77,6 +77,10 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// =========================================================================
+// Structs
+// =========================================================================
+
 // Request and Response schemas for Chirp validation
 type chirpParams struct {
 	Body   string    `json:"body"`
@@ -91,6 +95,7 @@ type chirpResponse struct {
 	UserId    uuid.UUID `json:"user_id"`
 }
 
+// Request and Response schemas for User
 type userParams struct {
 	Email string `json:"email"`
 }
@@ -140,6 +145,29 @@ func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Reques
 		Body:      chirp.Body,
 		UserId:    chirp.UserID,
 	})
+}
+
+func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.db.ReadChirps(r.Context())
+	if err != nil {
+		cfg.respondWithError(w, http.StatusBadRequest, "Chirps Read Failed")
+		return
+	}
+
+	// Convert chirps DB response to []chirpResponse
+	var response []chirpResponse
+
+	for _, chirp := range chirps {
+		response = append(response, chirpResponse{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserId:    chirp.UserID,
+		})
+	}
+
+	cfg.respondWithJSON(w, http.StatusOK, response)
 }
 
 // handlerUsers create a user
@@ -248,6 +276,7 @@ func main() {
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerValidateChirp)
+	mux.HandleFunc("GET /api/chirps", apiCfg.handlerChirps)
 
 	server := &http.Server{
 		Addr:    ":8080",
