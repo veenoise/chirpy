@@ -8,3 +8,7 @@ RETURNING *;
 -- name: ReadChirps :many
 SELECT * FROM chirps
 ORDER BY created_at ASC;
+
+-- name: ReadChirp :one
+SELECT * FROM chirps
+WHERE id = $1;

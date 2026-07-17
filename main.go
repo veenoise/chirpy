@@ -84,7 +84,7 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 // Request and Response schemas for Chirp validation
 type chirpParams struct {
 	Body   string    `json:"body"`
-	UserId uuid.UUID `json:"user_id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 type chirpResponse struct {
@@ -92,7 +92,7 @@ type chirpResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Body      string    `json:"body"`
-	UserId    uuid.UUID `json:"user_id"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
 // Request and Response schemas for User
@@ -130,7 +130,7 @@ func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Reques
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   cleaned,
-		UserID: params.UserId,
+		UserID: params.UserID,
 	})
 
 	if err != nil {
@@ -143,10 +143,11 @@ func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Reques
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
 		Body:      chirp.Body,
-		UserId:    chirp.UserID,
+		UserID:    chirp.UserID,
 	})
 }
 
+// handlerChirps outputs all chirps in database sorted by create_at ASC
 func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 	chirps, err := cfg.db.ReadChirps(r.Context())
 	if err != nil {
@@ -163,11 +164,30 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
 			Body:      chirp.Body,
-			UserId:    chirp.UserID,
+			UserID:    chirp.UserID,
 		})
 	}
 
 	cfg.respondWithJSON(w, http.StatusOK, response)
+}
+
+// handlerChirp returns the chirp from database by ID
+func (cfg *apiConfig) handlerChirp(w http.ResponseWriter, r *http.Request) {
+	queryParam := r.PathValue("chirpID")
+	chirp, err := cfg.db.ReadChirp(r.Context(), uuid.MustParse(queryParam))
+
+	if err != nil {
+		cfg.respondWithError(w, http.StatusNotFound, "Chirp Read Failed")
+		return
+	}
+
+	cfg.respondWithJSON(w, http.StatusOK, chirpResponse{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
+	})
 }
 
 // handlerUsers create a user
@@ -277,6 +297,7 @@ func main() {
 	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerValidateChirp)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerChirp)
 
 	server := &http.Server{
 		Addr:    ":8080",
