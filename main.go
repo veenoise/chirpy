@@ -9,10 +9,8 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
-	"time"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/veenoise/chirpy/internal/database"
@@ -77,13 +75,6 @@ type userParams struct {
 	Email string `json:"email"`
 }
 
-type userResponse struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-}
-
 // handlerValidateChirp decodes and validates the chirp length correctly using runes.
 func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 	// Limit request body to 50KB to prevent memory exhaustion attacks
@@ -125,12 +116,7 @@ func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg.respondWithJSON(w, http.StatusCreated, userResponse{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
-	})
+	cfg.respondWithJSON(w, http.StatusCreated, user)
 
 }
 
