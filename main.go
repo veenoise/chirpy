@@ -9,8 +9,10 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/veenoise/chirpy/internal/database"
@@ -20,6 +22,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	platform       string
 }
 
 // =========================================================================
@@ -56,23 +59,47 @@ func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
 
 // handlerReset resets the hit counter back to 0.
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
-	cfg.fileserverHits.Store(0)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Hits reset to 0"))
+	if cfg.platform != "dev" {
+		cfg.respondWithError(w, http.StatusForbidden, "Application Not In Development Mode")
+		return
+	}
+
+	err := cfg.db.DeleteUsers(r.Context())
+	if err != nil {
+		cfg.respondWithError(w, http.StatusBadRequest, "Delete All Users Failed")
+		return
+	}
+
+	cfg.respondWithJSON(w, http.StatusOK, struct {
+		Message string `json:"message"`
+	}{
+		Message: "Delete All Users Success",
+	})
 }
 
 // Request and Response schemas for Chirp validation
 type chirpParams struct {
-	Body string `json:"body"`
+	Body   string    `json:"body"`
+	UserId uuid.UUID `json:"user_id"`
 }
 
 type chirpResponse struct {
-	CleanedBody string `json:"cleaned_body"`
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserId    uuid.UUID `json:"user_id"`
 }
 
 type userParams struct {
 	Email string `json:"email"`
+}
+
+type userResponse struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
 }
 
 // handlerValidateChirp decodes and validates the chirp length correctly using runes.
@@ -96,8 +123,22 @@ func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Reques
 
 	cleaned := cleanBody(params.Body)
 
-	cfg.respondWithJSON(w, http.StatusOK, chirpResponse{
-		CleanedBody: cleaned,
+	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
+		Body:   cleaned,
+		UserID: params.UserId,
+	})
+
+	if err != nil {
+		cfg.respondWithError(w, http.StatusBadRequest, "Chirp Creation Failed")
+		return
+	}
+
+	cfg.respondWithJSON(w, http.StatusCreated, chirpResponse{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserId:    chirp.UserID,
 	})
 }
 
@@ -116,8 +157,12 @@ func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg.respondWithJSON(w, http.StatusCreated, user)
-
+	cfg.respondWithJSON(w, http.StatusCreated, userResponse{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	})
 }
 
 // =========================================================================
@@ -155,7 +200,7 @@ func cleanBody(body string) string {
 }
 
 // respondWithJSON marshals the payload into JSON and writes it to the response writer.
-func (cfg *apiConfig) respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+func (cfg *apiConfig) respondWithJSON(w http.ResponseWriter, code int, payload any) {
 	dat, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("Error marshalling JSON: %s", err)
@@ -174,14 +219,16 @@ func (cfg *apiConfig) respondWithJSON(w http.ResponseWriter, code int, payload i
 func main() {
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
 	defer db.Close()
 	dbQueries := database.New(db)
 
-	apiCfg := &apiConfig{db: dbQueries}
+	apiCfg := &apiConfig{db: dbQueries, platform: platform}
 
 	mux := http.NewServeMux()
 
@@ -199,8 +246,8 @@ func main() {
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
-	mux.HandleFunc("POST /api/validate_chirp", apiCfg.handlerValidateChirp)
 	mux.HandleFunc("POST /api/users", apiCfg.handlerUsers)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerValidateChirp)
 
 	server := &http.Server{
 		Addr:    ":8080",
