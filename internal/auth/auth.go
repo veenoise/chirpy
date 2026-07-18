@@ -110,11 +110,11 @@ func ValidateRefreshToken(refreshToken string, databaseResponse DatabaseGetRefre
 func GetAPIKey(headers http.Header) (string, error) {
 	bearerToken := strings.Split(headers.Get("Authorization"), " ")
 	if len(bearerToken) != 2 {
-		return "", errors.New("No Bearer Token Found")
+		return "", errors.New("No ApiKey Token Found")
 	}
 
 	if bearerToken[0] != "ApiKey" {
-		return "", errors.New("No Bearer Token Found")
+		return "", errors.New("No ApiKey Token Found")
 	}
 
 	authToken := bearerToken[1]
