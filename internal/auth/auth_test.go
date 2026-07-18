@@ -240,3 +240,57 @@ func TestCheckPasswordHash(t *testing.T) {
 		})
 	}
 }
+
+func TestGetAPIKey(t *testing.T) {
+	validTest := http.Header{}
+	validTest.Set("Authorization", "ApiKey demo")
+	malformedTest := http.Header{}
+	malformedTest.Set("Authorization", "ApiKy demo")
+	emptyTest := http.Header{}
+	emptyTest.Set("Authorization", "ApiKey   ")
+
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		headers http.Header
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "Valid API Key",
+			headers: validTest,
+			want:    "demo",
+			wantErr: false,
+		},
+		{
+			name:    "Malformed API Key",
+			headers: malformedTest,
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "Empty API Key",
+			headers: emptyTest,
+			want:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := auth.GetAPIKey(tt.headers)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("GetAPIKey() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("GetAPIKey() succeeded unexpectedly")
+			}
+
+			if got != tt.want {
+				t.Errorf("GetAPIKey() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
