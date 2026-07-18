@@ -180,10 +180,24 @@ func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Reques
 
 // handlerChirps outputs all chirps in database sorted by create_at ASC
 func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.db.ReadChirps(r.Context())
-	if err != nil {
-		cfg.respondWithError(w, http.StatusBadRequest, "Chirps Read Failed")
-		return
+	// Get query params
+	authorID := r.URL.Query().Get("author_id")
+
+	var chirps []database.Chirp
+	var err error
+	// When no query param
+	if authorID == "" {
+		chirps, err = cfg.db.ReadChirps(r.Context())
+		if err != nil {
+			cfg.respondWithError(w, http.StatusBadRequest, "Chirps Read Failed")
+			return
+		}
+	} else {
+		chirps, err = cfg.db.ReadAuthorChirps(r.Context(), uuid.MustParse(authorID))
+		if err != nil {
+			cfg.respondWithError(w, http.StatusBadRequest, "Chirp Author Read Failed")
+			return
+		}
 	}
 
 	// Convert chirps DB response to []chirpResponse
