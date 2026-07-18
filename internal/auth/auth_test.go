@@ -110,6 +110,10 @@ func TestGetBearerToken(t *testing.T) {
 	header := http.Header{}
 	header.Set("Authorization", "Bearer demoToken.hiWilliam")
 	noAuth := http.Header{}
+	malformedBearer := http.Header{}
+	malformedBearer.Set("Authorization", "Birer demoToken.hiWilliam")
+	malformedToken := http.Header{}
+	malformedToken.Set("Authorization", "Bearer  ")
 
 	tests := []struct {
 		name string // description of this test case
@@ -127,6 +131,18 @@ func TestGetBearerToken(t *testing.T) {
 		{
 			name:    "No Authorization Bearer",
 			headers: noAuth,
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "Malformed Authorization Bearer",
+			headers: malformedBearer,
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "Malformed Token",
+			headers: malformedToken,
 			want:    "",
 			wantErr: true,
 		},

@@ -83,6 +83,10 @@ func GetBearerToken(headers http.Header) (string, error) {
 		return "", errors.New("No Bearer Token Found")
 	}
 
+	if bearerToken[0] != "Bearer" {
+		return "", errors.New("No Bearer Token Found")
+	}
+
 	authToken := bearerToken[1]
 	return authToken, nil
 }
