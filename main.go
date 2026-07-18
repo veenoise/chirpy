@@ -350,6 +350,20 @@ func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) 
 }
 
 func (cfg *apiConfig) handlerUpgradeUser(w http.ResponseWriter, r *http.Request) {
+	// Get API Key from authorization header
+	headerKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		cfg.respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	// Compare header to env polkaKey
+	if headerKey != cfg.polkaKey {
+		cfg.respondWithError(w, http.StatusUnauthorized, "Invalid Polka Key")
+		return
+	}
+
+	// Get JSON request
 	var params upgradeUserParams
 
 	decoder := json.NewDecoder(r.Body)
@@ -365,7 +379,7 @@ func (cfg *apiConfig) handlerUpgradeUser(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Update user is_chirpy_red
-	err := cfg.db.UpgradeUser(r.Context(), database.UpgradeUserParams{
+	err = cfg.db.UpgradeUser(r.Context(), database.UpgradeUserParams{
 		IsChirpyRed: true,
 		ID:          uuid.MustParse(params.Data.UserID),
 	})
