@@ -4,7 +4,8 @@ CREATE TABLE users (
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     email TEXT NOT NULL UNIQUE,
-    hashed_password TEXT NOT NULL DEFAULT 'unset'
+    hashed_password TEXT NOT NULL DEFAULT 'unset',
+    is_chirpy_red BOOLEAN DEFAULT FALSE NOT NULL
 );
 
 -- +goose Down

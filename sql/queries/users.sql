@@ -25,3 +25,8 @@ UPDATE users
     updated_at = NOW()
 WHERE id = $3
 RETURNING *;
+
+-- name: UpgradeUser :exec
+UPDATE users
+    set is_chirpy_red = $1
+WHERE id = $2;
