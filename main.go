@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -182,6 +183,7 @@ func (cfg *apiConfig) handlerValidateChirp(w http.ResponseWriter, r *http.Reques
 func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 	// Get query params
 	authorID := r.URL.Query().Get("author_id")
+	sortOrder := r.URL.Query().Get("sort")
 
 	var chirps []database.Chirp
 	var err error
@@ -211,6 +213,14 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 			Body:      chirp.Body,
 			UserID:    chirp.UserID,
 		})
+	}
+
+	// Sort response
+	switch sortOrder {
+	case "", "asc":
+		sort.Slice(response, func(i, j int) bool { return response[i].CreatedAt.Before(response[j].CreatedAt) })
+	case "desc":
+		sort.Slice(response, func(i, j int) bool { return response[i].CreatedAt.After(response[j].CreatedAt) })
 	}
 
 	cfg.respondWithJSON(w, http.StatusOK, response)
