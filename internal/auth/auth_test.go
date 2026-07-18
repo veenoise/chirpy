@@ -180,3 +180,47 @@ func TestHashPassword(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckPasswordHash(t *testing.T) {
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		password string
+		hash     string
+		want     bool
+		wantErr  bool
+	}{
+		{
+			name:     "Valid password hash",
+			password: "demo",
+			hash:     "$argon2id$v=19$m=65536,t=1,p=8$Oc/9OXyCSZscLEfBTQyX1g$RFUaT1ktJyF0u0F/dCoVt4YArh4NXawFhGaURgwcLXM",
+			want:     true,
+			wantErr:  false,
+		},
+		{
+			name:     "Invalid password hash",
+			password: "test",
+			hash:     "$argon2id$v=19$m=65536,t=1,p=8$Oc/9OXyCSZscLEfBTQyX1g$RFUaT1ktJyF0u0F/dCoVt4YArh4NXawFhGaURgwcLXM",
+			want:     false,
+			wantErr:  false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := auth.CheckPasswordHash(tt.password, tt.hash)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("CheckPasswordHash() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("CheckPasswordHash() succeeded unexpectedly")
+			}
+
+			if got != tt.want {
+				t.Errorf("CheckPasswordHash() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
